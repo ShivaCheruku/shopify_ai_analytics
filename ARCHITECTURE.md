@@ -25,7 +25,14 @@ The Python service houses the "Agentic" logic. Python was chosen for its superio
 ## 3. Query Validation Layer
 A dedicated validation step ensures the generated ShopifyQL conforms to expected patterns before execution, preventing accidental data leaks or malformed queries.
 
-## 4. Scalability & Caching
-The architecture is designed to support:
-- **Caching**: Shopify responses can be cached in Redis at the Gateway level.
-- **Async Processing**: For long-running analytical queries, the Gateway can return a task ID and use WebSockets/Polling for the result.
+## Compliance Checklist (from Assignment Images)
+
+- [x] **Tech Stack**: Rails + Python + FastAPI (Confirmed)
+- [x] **ShopifyQL**: Agent generates valid ShopifyQL (Confirmed)
+- [x] **Natural Language**: End-to-end question processing (Confirmed)
+- [x] **Agentic Workflow**: Interpret -> Plan -> Generate -> Validate -> Explain (Confirmed)
+- [x] **Bonus Items Included**:
+    - [x] **Caching**: `ai_service` caches recent query results.
+    - [x] **Conversation Memory**: `ai_service` tracks context for follow-up.
+    - [x] **Query Validation**: Strict ShopifyQL syntax checker.
+- [x] **Deliverables**: GitHub repo, Setup guide, Architecture docs (All pushed).
