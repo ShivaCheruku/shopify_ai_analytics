@@ -19,9 +19,18 @@ class QuestionRequest(BaseModel):
 
 @app.post("/process")
 async def process_question(request: QuestionRequest):
+    """
+    Main Agentic Workflow:
+    1. Interpret Intent & Generate ShopifyQL
+    2. Validate Generated Query
+    3. Execute against Shopify (Mocked)
+    4. Generate Human-Readable Insight
+    """
     try:
-        # 1. Understand intent & Generate ShopifyQL
-        # For the demo, if GEMINI_API_KEY is mock, we provide hardcoded mappings
+        # Step 1: Interpret intent & Generate ShopifyQL
+        # We use a system prompt that constraints the LLM to known analytical tables
+        print(f"Agent interpreting question: {request.question}")
+        
         if os.getenv("GEMINI_API_KEY") == "mock_key" or not os.getenv("GEMINI_API_KEY"):
             shopify_ql = simulate_query_generation(request.question)
         else:
@@ -29,11 +38,24 @@ async def process_question(request: QuestionRequest):
             response = chat.send_message(f"{SYSTEM_PROMPT}\n\nQuestion: {request.question}")
             shopify_ql = response.text.strip()
 
-        # 2. Execute Query against Shopify
+        # Step 2: Query Validation Layer
+        # Rationale: Security and correctness. We ensure the query doesn't contain destructive commands.
+        is_valid, error_msg = validate_shopify_ql(shopify_ql)
+        if not is_valid:
+            print(f"Validation failed: {error_msg}")
+            return {
+                "answer": "I'm sorry, I generated a query that I couldn't validate. Could you please rephrase your question?",
+                "confidence": "low",
+                "technical_error": error_msg
+            }
+
+        # Step 3: Execute Query against Shopify
+        # Rationale: Decoupled client allows for easy swapping of mock vs real APIs
         client = ShopifyClient(request.store_id, request.access_token)
         raw_data = await client.execute_shopify_ql(shopify_ql)
 
-        # 3. Post-process & Generate Insight
+        # Step 4: Post-process & Generate Insight
+        # Rationale: Convert technical metrics into business language for the end-user
         if os.getenv("GEMINI_API_KEY") == "mock_key" or not os.getenv("GEMINI_API_KEY"):
             final_response = simulate_insight_generation(request.question, raw_data)
         else:
@@ -44,8 +66,21 @@ async def process_question(request: QuestionRequest):
         return final_response
 
     except Exception as e:
-        print(f"Error in AI Service: {str(e)}")
+        print(f"Critical Error in Agent Flow: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+def validate_shopify_ql(query: str) -> (bool, str):
+    """
+    Ensures the generated query is read-only and uses supported keywords.
+    """
+    forbidden = ["DELETE", "DROP", "UPDATE", "INSERT"]
+    if any(word in query.upper() for word in forbidden):
+        return False, "Dangerous keywords detected in query."
+    
+    if "SHOW" not in query.upper():
+        return False, "Query must start with SHOW for analytical retrieval."
+        
+    return True, None
 
 def simulate_query_generation(question: str) -> str:
     q = question.lower()
